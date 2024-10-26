@@ -72,6 +72,71 @@ namespace POS_Siscred
             gbConfiguracoes.Visible = !gbConfiguracoes.Visible;
         }
 
+        private void tbValor_KeyPress(object sender, KeyPressEventArgs e)
+        {
+            if (sender is TextBox textBox)
+            {
+
+                if (!char.IsDigit(e.KeyChar) && e.KeyChar != Convert.ToChar(Keys.Back))
+                {
+                    if (e.KeyChar == ',')
+                    {
+                        e.Handled = (textBox.Text.Contains(","));
+                    }
+                    else
+                        e.Handled = true;
+                }
+            }
+        }
+
+        private void tbValor_Leave(object sender, EventArgs e)
+        {
+            if (sender is TextBox textBox)
+            {
+                string valor = textBox.Text.Replace("R$", "");
+                textBox.Text = string.Format("{0:C}", Convert.ToDouble(valor));
+            }
+        }
+
+        private void tbValor_KeyUp(object sender, KeyEventArgs e)
+        {
+            if (sender is TextBox textBox)
+            {
+                string valor = textBox.Text.Replace("R$", "").Replace(",", "").Replace(" ", "").Replace("00,", "");
+                if (valor.Length == 0)
+                {
+                    textBox.Text = "0,00" + valor;
+                }
+                if (valor.Length == 1)
+                {
+                    textBox.Text = "0,0" + valor;
+                }
+                if (valor.Length == 2)
+                {
+                    textBox.Text = "0," + valor;
+                }
+                else if (valor.Length >= 3)
+                {
+                    if (textBox.Text.StartsWith("0,"))
+                    {
+                        textBox.Text = valor.Insert(valor.Length - 2, ",").Replace("0,", "");
+                    }
+                    else if (textBox.Text.Contains("00,"))
+                    {
+                        textBox.Text = valor.Insert(valor.Length - 2, ",").Replace("00,", "");
+                    }
+                    else
+                    {
+                        textBox.Text = valor.Insert(valor.Length - 2, ",");
+                    }
+                }
+                valor = textBox.Text;
+                textBox.Text = string.Format("{0:C}", Convert.ToDouble(valor));
+                textBox.Select(textBox.Text.Length, 0);
+            }
+        }
+
+
         private void btnVender_Click(object sender, EventArgs e)
         {
             lbStatus.Text = "";
@@ -171,74 +236,91 @@ namespace POS_Siscred
             lbStatus.Text = retEfetuarVenda.response_message;
 
         }
-
-        private void tbValor_KeyPress(object sender, KeyPressEventArgs e)
-        {
-            if (sender is TextBox textBox)
-            {
-
-                if (!char.IsDigit(e.KeyChar) && e.KeyChar != Convert.ToChar(Keys.Back))
-                {
-                    if (e.KeyChar == ',')
-                    {
-                        e.Handled = (textBox.Text.Contains(","));
-                    }
-                    else
-                        e.Handled = true;
-                }
-            }
-        }
-
-        private void tbValor_Leave(object sender, EventArgs e)
-        {
-            if (sender is TextBox textBox)
-            {
-                string valor = textBox.Text.Replace("R$", "");
-                textBox.Text = string.Format("{0:C}", Convert.ToDouble(valor));
-            }
-        }
-
-        private void tbValor_KeyUp(object sender, KeyEventArgs e)
-        {
-            if (sender is TextBox textBox)
-            {
-                string valor = textBox.Text.Replace("R$", "").Replace(",", "").Replace(" ", "").Replace("00,", "");
-                if (valor.Length == 0)
-                {
-                    textBox.Text = "0,00" + valor;
-                }
-                if (valor.Length == 1)
-                {
-                    textBox.Text = "0,0" + valor;
-                }
-                if (valor.Length == 2)
-                {
-                    textBox.Text = "0," + valor;
-                }
-                else if (valor.Length >= 3)
-                {
-                    if (textBox.Text.StartsWith("0,"))
-                    {
-                        textBox.Text = valor.Insert(valor.Length - 2, ",").Replace("0,", "");
-                    }
-                    else if (textBox.Text.Contains("00,"))
-                    {
-                        textBox.Text = valor.Insert(valor.Length - 2, ",").Replace("00,", "");
-                    }
-                    else
-                    {
-                        textBox.Text = valor.Insert(valor.Length - 2, ",");
-                    }
-                }
-                valor = textBox.Text;
-                textBox.Text = string.Format("{0:C}", Convert.ToDouble(valor));
-                textBox.Select(textBox.Text.Length, 0);
-            }
-        }
-
-
         private void btnFinalizar_Click(object sender, EventArgs e)
         {
+            if (cbAcaoFinalizar.Text == "Confirmar")
+            {
+                string tmpvalor = tbValorConfirmacao.Text.Replace("R$", "").Replace(" ", "").Replace(".", "").Replace(",", ".");
+
+                try
+                {
+                    double tmpVlr = Convert.ToDouble(tmpvalor);
+                    if (tmpVlr == 0)
+                    {
+                        lbStatus.Text = "Valor precisa ser preenchido";
+                        return;
+                    }
+                }
+                catch
+                {
+                    lbStatus.Text = "Valor precisa ser preenchido";
+                    return;
+                }
+
+                lbStatus.Text = "Efetuando ação de " + cbAcaoFinalizar.Text  + " ...";
+
+                var efetuarConfirmacao = new EfetuarConfirmacao(tbHostApi.Text);
+                var retEfetuarConfirmacao = efetuarConfirmacao.Execute(tbToken.Text, tbIdEstabelecimento.Text, tbNsuGuest.Text, tbNsuHost.Text, tmpvalor);
+                if (retEfetuarConfirmacao.response_code != "00")
+                {
+                    lbStatus.Text = retEfetuarConfirmacao.response_message;
+                    return;
+                }
+
+                tbNsuHost.Text = retEfetuarConfirmacao.authorization;
+                try
+                {
+                    int seqNsuGuest = Convert.ToInt32(tbNsuGuest.Text) + 1;
+                    tbNsuGuest.Text = seqNsuGuest.ToString().PadLeft(6, '0');
+                    //config.NsuGuest = tbNsuGuest.Text;
+                }
+                catch
+                { }
+
+                lbStatus.Text = retEfetuarConfirmacao.response_message;
+            }
+            else if (cbAcaoFinalizar.Text == "Desfazer")
+            {
+                string tmpvalor = tbValorConfirmacao.Text.Replace("R$", "").Replace(" ", "").Replace(".", "").Replace(",", ".");
+
+                try
+                {
+                    double tmpVlr = Convert.ToDouble(tmpvalor);
+                    if (tmpVlr == 0)
+                    {
+                        lbStatus.Text = "Valor precisa ser preenchido";
+                        return;
+                    }
+                }
+                catch
+                {
+                    lbStatus.Text = "Valor precisa ser preenchido";
+                    return;
+                }
+
+                lbStatus.Text = "Efetuando ação de " + cbAcaoFinalizar.Text + " ...";
+
+                var efetuarDesfazimento = new EfetuarDesfazimentoVenda(tbHostApi.Text);
+                var retEfetuarDesfazimento = efetuarDesfazimento.Execute(tbToken.Text, tbIdEstabelecimento.Text, tbNsuGuest.Text, tbNsuHost.Text, tmpvalor);
+                if (retEfetuarDesfazimento.response_code != "00")
+                {
+                    lbStatus.Text = retEfetuarDesfazimento.response_message;
+                    return;
+                }
+
+                tbNsuHost.Text = retEfetuarDesfazimento.authorization;
+                try
+                {
+                    int seqNsuGuest = Convert.ToInt32(tbNsuGuest.Text) + 1;
+                    tbNsuGuest.Text = seqNsuGuest.ToString().PadLeft(6, '0');
+                    //config.NsuGuest = tbNsuGuest.Text;
+                }
+                catch
+                { }
+
+                lbStatus.Text = retEfetuarDesfazimento.response_message;
+            }
+
 
         }
     }
