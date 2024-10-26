@@ -1,5 +1,5 @@
 # POS_Siscred
-Utilização da API so sistema Siscred para venda ecommerce
+Utilização da API do sistema Siscred para venda ecommerce
 
 Essa aplicação foi baseada na API
 
